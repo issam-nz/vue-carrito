@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mi Tienda</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <script src="https://unpkg.com/vue-router@4/dist/vue-router.global.js"></script>
+  <script src="productos-data.js"></script>
+  <style>
+    nav {
+      background-color: #333;
+      padding: 10px;
+    }
+
+    ul {
+      list-style-type: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: space-around;
+    }
+
+    li {
+      margin: 0;
+    }
+
+    a {
+      color: white;
+      text-decoration: none;
+    }
+
+    .active {
+      border-bottom: 2px solid white;
+    }
+
+    .productos-list {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-around;
+      margin-top: 20px;
+    }
+
+    .producto-card {
+      border: 1px solid #ddd;
+      padding: 10px;
+      margin: 10px;
+      width: 200px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="app">
+
+    <navbar></navbar>
+
+    <router-view :carrito="carrito"></router-view>
+
+  </div>
+
+  <script>
+    const { createApp } = Vue
+
+    // Componente para el navbar
+    const Navbar = {
+      template: `
+      <nav>
+        <ul>
+          <li :class="{ active: $route.path === '/productos' }"><router-link to="/productos">Productos</router-link></li>
+          <li :class="{ active: $route.path === '/carrito' }"><router-link to="/carrito">Carrito</router-link></li>
+        </ul>
+      </nav>
+    `
+    }
+
+    // Componente para la página de productos
+    const Productos = {
+      template: `
+        <div>
+          <h2>Productos</h2>
+          <div class="productos-list">
+            <producto-card v-for="producto in productos" :key="producto.id" :producto="producto"></producto-card>
+          </div>
+        </div>
+      `,
+      props: ['productos']
+    }
+
+    // Componente para mostrar cada producto individualmente
+    const ProductoCard = {
+      template: `
+        <div class="producto-card">
+          <h3>{{ producto.nombre }}</h3>
+          <p>Precio: {{ producto.precio }}</p>
+          <button type="button" @click="addProducto(producto.id)">Add to Cart</button>
+        </div>
+      `,
+      props: ['producto'],
+      methods : {
+        addProducto(id) {
+          // app._component.methods.addProducto(id);
+          // this.$emit('addProducto', id);
+          this.$root.addProducto(id);
+        }
+      }
+    }
+    
+    // Componente para la página del carrito
+    const Carrito = {
+      template: `
+      <div>
+        <h2>Carrito</h2>
+        <div class="cart-list">
+            <div v-for="(producto, index) in carrito" :key="index">
+                <div class="order-item-content">
+                    <h5>{{ producto.nombre }} - {{ producto.precio }}€</h5>
+                    <p>
+                        <button type="button" class="add" @click="addItem(producto.id)">+</button>
+                        {{ producto.cantidad }}
+                        <button type="button" class="remove" @click="reduceItem(producto.id)">-</button>
+                    </p>
+                </div>
+                <button class="remove-icon" type="button" @click="removeProducto(producto.id)">x</button>
+            </div>
+        </div>
+        <div class="total-section">
+          <h6 class="total-title">Total payment:</h6>
+          <span class="amount">
+            {{ getTotalPrice() }}
+          </span>
+        </div>
+      </div>
+    `,
+    props: ['carrito'],
+    methods : {
+        addItem(id) {
+          this.$root.addItem(id);
+        },
+        reduceItem(id) {
+          this.$root.reduceItem(id);
+        },
+        removeProducto(id) {
+          this.$root.removeProducto(id);
+        },
+        getTotalPrice() {
+          return this.$root.getTotalPrice();
+        },
+      },
+    }
+
+    const app = createApp({
+      data() {
+        return {
+          productos: productosData,
+          carrito: carrito
+        };
+      },
+      methods: {
+        addProducto(id) {
+          let producto = this.productos.find((producto) => producto.id == id);
+          let index = this.carrito.findIndex((producto) => producto.id == id);
+          if (index != -1) {
+            this.carrito[index].cantidad++;
+          } else {
+            this.carrito.push({ ...producto, cantidad: 1 });
+          }
+          // console.log(this.carrito);
+        },
+        getTotalPrice() {
+          var total = 0;
+          this.carrito.forEach((producto) => {
+            total += producto.precio * producto.cantidad;
+          });
+          return total.toFixed(2);
+        },
+        reduceItem(id) {
+          var producto = this.carrito.find((producto) => producto.id == id);
+          if (producto.cantidad > 1) {
+            producto.cantidad--;
+          } else {
+            this.carrito = this.carrito.filter((producto) => producto.id != id);
+          }
+        },
+        addItem(id) {
+          var item = this.carrito.find((item) => item.id == id);
+          item.cantidad++;
+        },
+        removeProducto(id) {
+          this.carrito = this.carrito.filter((producto) => producto.id != id);
+        },
+      },
+    })
+
+    const routes = [
+      { path: '/', component: Productos, props: { productos: productosData } }, // Pasa los productos como props
+      { path: '/productos', component: Productos, props: { productos: productosData } }, // Pasa los productos como props
+      { path: '/carrito', component: Carrito,  props: (route) => ({ carrito: route.params.carrito }) }
+    ]
+
+    const router = VueRouter.createRouter({
+      history: VueRouter.createWebHashHistory(),
+      routes
+    })
+
+
+    app.component('navbar', Navbar)
+    app.component('producto-card', ProductoCard)
+    app.use(router)
+    app.mount('#app')
+    
+  </script>
+
+</body>
+
+</html>
