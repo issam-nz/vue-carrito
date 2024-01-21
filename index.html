@@ -9,6 +9,18 @@
   <script src="https://unpkg.com/vue-router@4/dist/vue-router.global.js"></script>
   <script src="productos-data.js"></script>
   <style>
+    body {
+      font-family: 'Arial', sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f4;
+    }
+
+    #app {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
     nav {
       background-color: #333;
       padding: 10px;
@@ -47,6 +59,83 @@
       padding: 10px;
       margin: 10px;
       width: 200px;
+      background-color: white;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      transition: transform 0.3s ease;
+    }
+
+    .producto-card:hover {
+      transform: scale(1.05);
+    }
+
+    .producto-card img {
+      max-width: 100%;
+      height: auto;
+      margin-bottom: 10px;
+    }
+
+    .producto-card h3 {
+      font-size: 16px;
+      margin: 0;
+    }
+
+    .producto-card p {
+      margin: 0;
+      font-size: 14px;
+      color: #555;
+    }
+
+    .producto-card button {
+      background-color: #333;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+
+    .producto-card button:hover {
+      background-color: #555;
+    }
+
+    .cart-list {
+      display: flex;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }
+
+    .order-item-content {
+      background-color: white;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      margin: 10px;
+      padding: 10px;
+      width: 200px;
+    }
+
+    .remove-icon {
+      background-color: #ff6347;
+      color: white;
+      border: none;
+      padding: 5px;
+      cursor: pointer;
+    }
+
+    .remove-icon:hover {
+      background-color: #ff3e20;
+    }
+
+    .total-section {
+      margin-top: 20px;
+    }
+
+    .total-title {
+      font-size: 16px;
+      margin: 0;
+    }
+
+    .amount {
+      font-size: 18px;
+      font-weight: bold;
+      color: #333;
     }
   </style>
 </head>
@@ -56,7 +145,7 @@
   <div id="app">
 
     <navbar></navbar>
-
+    <currency-dropdown></currency-dropdown>
     <router-view :carrito="carrito"></router-view>
 
   </div>
@@ -74,6 +163,43 @@
         </ul>
       </nav>
     `
+    }
+
+    const CurrencyDropdown = {
+      template: `
+      <div>
+        <label for="currencySelect">Select Currency:</label>
+        <select id="currencySelect" v-model="selectedCurrency" @change="updateSelectedCurrency">
+          <option v-for="(rate, currency) in $root.currencies" :key="currency" :value="currency">
+            {{ currency }}
+          </option>
+        </select>
+      </div>
+      `,
+      data() {
+        return {
+          currencies: {},
+          selectedCurrency: 'EUR', // Set the default selected currency to EUR
+        };
+      },
+      created() {
+        // Fetch data and set currencies
+        this.fetchCurrencies();
+      },
+      methods: {
+        async fetchCurrencies() {
+          // Simulate a fetch operation, replace with your actual API call
+          const response = await fetch('https://api.freecurrencyapi.com/v1/latest?apikey=fca_live_xxz64DzTQ0WIGsescVYMauJ62TpKseE8QVcvZvJm&currencies=&base_currency=EUR');
+          const data = await response.json();
+
+          // Assuming the API response has a "data" property with currencies
+          this.currencies = data.data;
+          // console.log(this.currencies);
+        },
+        updateSelectedCurrency() {
+          this.$root.selectedCurrency = this.selectedCurrency;
+        },
+      },
     }
 
     // Componente para la página de productos
@@ -94,7 +220,7 @@
       template: `
         <div class="producto-card">
           <h3>{{ producto.nombre }}</h3>
-          <p>Precio: {{ producto.precio }}</p>
+          <p>Precio: {{ getPrecio(producto.precio) }} {{ this.$root.selectedCurrency }}</p>
           <button type="button" @click="addProducto(producto.id)">Add to Cart</button>
         </div>
       `,
@@ -104,6 +230,9 @@
           // app._component.methods.addProducto(id);
           // this.$emit('addProducto', id);
           this.$root.addProducto(id);
+        },
+        getPrecio(precio) {
+          return this.$root.getCalculatedPriceCurrency(precio);
         }
       }
     }
@@ -115,21 +244,21 @@
         <h2>Carrito</h2>
         <div class="cart-list">
             <div v-for="(producto, index) in carrito" :key="index">
-                <div class="order-item-content">
-                    <h5>{{ producto.nombre }} - {{ producto.precio }}€</h5>
+              <div class="order-item-content">
+                <button class="remove-icon" type="button" @click="removeProducto(producto.id)">x</button>
+                    <h5>{{ producto.nombre }} - {{ getPrecio(producto.precio) }} {{ this.$root.selectedCurrency }}</h5>
                     <p>
                         <button type="button" class="add" @click="addItem(producto.id)">+</button>
                         {{ producto.cantidad }}
                         <button type="button" class="remove" @click="reduceItem(producto.id)">-</button>
                     </p>
                 </div>
-                <button class="remove-icon" type="button" @click="removeProducto(producto.id)">x</button>
             </div>
         </div>
         <div class="total-section">
           <h6 class="total-title">Total payment:</h6>
           <span class="amount">
-            {{ getTotalPrice() }}
+            {{ getPrecio(getTotalPrice()) }} {{ this.$root.selectedCurrency }}
           </span>
         </div>
       </div>
@@ -148,6 +277,9 @@
         getTotalPrice() {
           return this.$root.getTotalPrice();
         },
+        getPrecio(precio) {
+          return this.$root.getCalculatedPriceCurrency(precio);
+        }
       },
     }
 
@@ -155,11 +287,14 @@
       data() {
         return {
           productos: productosData,
-          carrito: carrito
+          carrito: carrito,
+          selectedCurrency: 'EUR', // Set the default selected currency to EUR
+          currencies: {}, // Placeholder for exchange rates
         };
       },
       methods: {
         addProducto(id) {
+          console.log(this.currencies[this.selectedCurrency]);
           let producto = this.productos.find((producto) => producto.id == id);
           let index = this.carrito.findIndex((producto) => producto.id == id);
           if (index != -1) {
@@ -191,6 +326,25 @@
         removeProducto(id) {
           this.carrito = this.carrito.filter((producto) => producto.id != id);
         },
+        fetchCurrencies() {
+          // Simulate a fetch operation, replace with your actual API call
+          fetch('https://api.freecurrencyapi.com/v1/latest?apikey=fca_live_xxz64DzTQ0WIGsescVYMauJ62TpKseE8QVcvZvJm&currencies=&base_currency=EUR')
+            .then(response => response.json())
+            .then(data => {
+              this.currencies = data.data;
+              // console.log(this.currencies);
+            })
+            .catch(error => {
+              console.error('Error fetching currencies', error);
+            });
+        },
+        getCalculatedPriceCurrency(precio) {
+          return (precio * this.currencies[this.selectedCurrency]).toFixed(2);
+        }
+      },
+      created() {
+        // Fetch currencies when the app is created
+        this.fetchCurrencies();
       },
     })
 
@@ -207,9 +361,32 @@
 
 
     app.component('navbar', Navbar)
+    app.component('currency-dropdown', CurrencyDropdown)
     app.component('producto-card', ProductoCard)
     app.use(router)
     app.mount('#app')
+
+    // console.log('hola');
+    
+    // async function getCurrencies() {
+    //   try {
+    //     const response = await fetch("https://api.freecurrencyapi.com/v1/latest?apikey=fca_live_xxz64DzTQ0WIGsescVYMauJ62TpKseE8QVcvZvJm&currencies=&base_currency=EUR");
+    //     const data = await response.json();
+    //     // console.log(data);
+    //     return data;
+    //   } catch (error) {
+    //     console.error('Error fetching currency data', error);
+    //   }
+    // }
+
+    // Usage
+    // async function fetchCurrencyData() {
+    //   let data = await getCurrencies();
+    //   return data.data;
+    // }
+
+    // fetchCurrencyData();
+
     
   </script>
 
